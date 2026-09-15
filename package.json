@@ -1,0 +1,22 @@
+{
+  "name": "la-elotiza",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "scripts": {
+    "install:front": "pnpm --dir front install --frozen-lockfile",
+    "dev:front": "pnpm --dir front dev",
+    "build:front": "pnpm --dir front build",
+    "start:front": "pnpm --dir front start",
+    "lint:front": "pnpm --dir front lint",
+    "typecheck:front": "pnpm --dir front exec tsc --noEmit",
+    "check:front": "pnpm run lint:front && pnpm run typecheck:front",
+
+    "install:api": "uv sync --directory api --locked",
+    "dev:api": "uv run --directory api --locked app --reload",
+    "test:api": "uv run --directory api --locked pytest",
+    "lint:api": "uv run --directory api --locked ruff check .",
+    "format:check:api": "uv run --directory api --locked ruff format --check .",
+    "check:api": "pnpm run lint:api && pnpm run format:check:api && pnpm run test:api",
+    "check": "pnpm run check:front && pnpm run check:api"
+  }
+}
