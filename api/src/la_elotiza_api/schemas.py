@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from la_elotiza_api.models import EstadoOrden, Rol
+from la_elotiza_api.models import EstadoOrden, MetodoPago, Rol
 
 # Los importes se exponen como número JSON con 2 decimales; por dentro son
 # Decimal para no acumular errores de redondeo.
@@ -392,6 +392,7 @@ class ItemOut(Esquema):
     nota: str
     precio_unitario: Dinero
     importe: Dinero
+    preparado: bool
 
 
 class LineaComandaOut(Esquema):
@@ -400,6 +401,7 @@ class LineaComandaOut(Esquema):
     nombre: str
     detalle: str
     nota: str
+    preparado: bool = False
 
 
 class ComandaOut(Esquema):
@@ -408,6 +410,17 @@ class ComandaOut(Esquema):
     cliente: str
     generada_en: datetime
     lineas: list[LineaComandaOut]
+    texto: str = Field(description="Listo para impresora térmica de 58 mm")
+
+
+class PagoOut(Esquema):
+    metodo: MetodoPago
+    total: Dinero
+    recibido: Dinero | None
+    cambio: Dinero | None
+    concepto: str | None
+    whatsapp_enviado: bool
+    registrado_en: datetime
 
 
 class OrdenOut(Esquema):
@@ -417,8 +430,46 @@ class OrdenOut(Esquema):
     estado: EstadoOrden
     comanda_al_dia: bool
     confirmada: bool
+    entregada: bool
     creada_en: datetime
     cancelada_en: datetime | None
     total: Dinero
     items: list[ItemOut]
     comanda: ComandaOut | None
+    pago: PagoOut | None
+
+
+# --- Cobro y cocina ---------------------------------------------------------
+
+
+class CobroIn(Esquema):
+    metodo: MetodoPago
+    recibido: DineroEntrada | None = Field(
+        None, description="Solo efectivo. Si se omite, se toma el total exacto."
+    )
+    whatsapp_enviado: bool = False
+
+
+class TransferenciaOut(Esquema):
+    folio: str
+    total: Dinero
+    concepto: str
+    mensaje: str
+    whatsapp_url: str
+
+
+class TicketOut(Esquema):
+    folio: str
+    cliente: str
+    items: list[ItemOut]
+    total: Dinero
+    pago: PagoOut
+    texto: str = Field(description="Listo para impresora térmica de 58 mm")
+
+
+class PreparadoIn(Esquema):
+    preparado: bool = True
+
+
+class EntregaIn(Esquema):
+    entregada: bool = True

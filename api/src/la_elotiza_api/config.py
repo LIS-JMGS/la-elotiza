@@ -20,6 +20,8 @@ class Settings:
     bloqueo_minutos: int = 5
     # Fondo de caja si al abrir el turno no se indica otro.
     fondo_caja: Decimal = Decimal("500")
+    # Texto con banco/CLABE que se agrega al mensaje de WhatsApp.
+    datos_transferencia: str = ""
 
     @property
     def tz(self) -> ZoneInfo:
@@ -41,4 +43,7 @@ class Settings:
             admin_pin=os.getenv("LA_ELOTIZA_ADMIN_PIN", d.admin_pin),
             sesion_horas=int(os.getenv("LA_ELOTIZA_SESION_HORAS", d.sesion_horas)),
             fondo_caja=Decimal(os.getenv("LA_ELOTIZA_FONDO_CAJA", str(d.fondo_caja))),
+            datos_transferencia=os.getenv(
+                "LA_ELOTIZA_DATOS_TRANSFERENCIA", d.datos_transferencia
+            ),
         )

@@ -221,6 +221,11 @@ class EstadoOrden(enum.StrEnum):
     CANCELADA = "cancelada"  # no se cobró; no cuenta en ventas ni corte
 
 
+class MetodoPago(enum.StrEnum):
+    EFECTIVO = "efectivo"
+    TRANSFERENCIA = "transferencia"
+
+
 class Turno(Base):
     """Jornada de caja: agrupa las ventas que entran en un corte."""
 
@@ -261,6 +266,7 @@ class Orden(Base):
     )
     # True cuando la última comanda refleja los productos actuales.
     comanda_al_dia: Mapped[bool] = mapped_column(default=False)
+    entregada: Mapped[bool] = mapped_column(default=False)
     creada_en: Mapped[datetime] = mapped_column(FechaUTC(), default=ahora_utc)
     cancelada_en: Mapped[datetime | None] = mapped_column(FechaUTC())
 
@@ -275,6 +281,9 @@ class Orden(Base):
         back_populates="orden",
         cascade="all, delete-orphan",
         order_by="Comanda.version",
+    )
+    pago: Mapped["Pago | None"] = relationship(
+        back_populates="orden", cascade="all, delete-orphan"
     )
 
     @property
@@ -309,6 +318,8 @@ class OrdenItem(Base):
     detalle: Mapped[str] = mapped_column(String(400), default="")
     nota: Mapped[str] = mapped_column(String(200), default="")
     precio_unitario: Mapped[Decimal] = mapped_column(Dinero())
+    # Cocina lo marca cuando ya está listo (RF 36).
+    preparado: Mapped[bool] = mapped_column(default=False)
 
     orden: Mapped[Orden] = relationship(back_populates="items")
 
@@ -333,3 +344,23 @@ class Comanda(Base):
     lineas: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
 
     orden: Mapped[Orden] = relationship(back_populates="comandas")
+
+
+class Pago(Base):
+    __tablename__ = "pagos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(
+        ForeignKey("ordenes.id", ondelete="CASCADE"), unique=True
+    )
+    metodo: Mapped[MetodoPago] = mapped_column(_enum(MetodoPago, "metodo_pago"))
+    total: Mapped[Decimal] = mapped_column(Dinero())
+    recibido: Mapped[Decimal | None] = mapped_column(Dinero())
+    cambio: Mapped[Decimal | None] = mapped_column(Dinero())
+    concepto: Mapped[str | None] = mapped_column(String(40), unique=True)
+    whatsapp_enviado: Mapped[bool] = mapped_column(default=False)
+    registrado_en: Mapped[datetime] = mapped_column(FechaUTC(), default=ahora_utc)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+
+    orden: Mapped[Orden] = relationship(back_populates="pago")
+    usuario: Mapped[Usuario] = relationship()

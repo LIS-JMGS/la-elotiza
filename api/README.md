@@ -61,6 +61,7 @@ uv run alembic check                                     # modelos == migracione
 | `LA_ELOTIZA_ADMIN_NOMBRE` / `LA_ELOTIZA_ADMIN_PIN` | `Encargado` / `1234` | Encargado inicial |
 | `LA_ELOTIZA_SESION_HORAS` | `14` | Duración del token de sesión |
 | `LA_ELOTIZA_FONDO_CAJA` | `500` | Fondo si al abrir turno no se indica |
+| `LA_ELOTIZA_DATOS_TRANSFERENCIA` | vacío | Banco/CLABE que se agrega al mensaje de WhatsApp |
 
 Los importes se guardan como centavos enteros (`tipos.Dinero`) y las fechas
 en UTC (`tipos.FechaUTC`). Los servicios lanzan errores de `errores.py` y
@@ -128,11 +129,29 @@ un turno abierto y sin él no se levantan órdenes.
   Exige productos y nombre del cliente. Si después cambia algo, la orden queda
   con `comanda_al_dia=false` y al confirmar de nuevo sale la versión siguiente.
 - `GET /ordenes/{id}/comanda`, `POST /ordenes/{id}/cancelar`.
-- `GET /ordenes?filtro=en_preparacion|canceladas|todas` — órdenes del turno abierto.
+- `GET /ordenes?filtro=en_preparacion|entregadas|canceladas|todas` — órdenes del turno abierto.
 
 Estados de una orden: `abierta` (editable) → `cerrada` (cobrada) o `cancelada`.
 Cada producto de la orden guarda copia de su nombre, presentación, opciones y
 precio, así que cambiar el catálogo no altera órdenes ya levantadas.
+
+## Cobro, ticket y cocina
+
+- `GET /ordenes/{id}/transferencia?telefono=` — concepto único
+  (`ELO-DDMM-0001-NOMBRE`, sin acentos), mensaje y liga `wa.me` para
+  mandárselo al cliente.
+- `POST /ordenes/{id}/cobro` `{metodo, recibido?, whatsapp_enviado?}` — registra
+  el pago, cierra la orden y devuelve el ticket. En efectivo calcula el
+  cambio; si se omite `recibido` se toma el total exacto. Exige que la
+  comanda esté al día.
+- `GET /ordenes/{id}/ticket` — para reimprimir.
+- `PUT /ordenes/{id}/items/{item_id}/preparado` y `PUT /ordenes/{id}/preparado`
+  `{preparado}` — cocina marca uno o todos los productos.
+- `PUT /ordenes/{id}/entrega` `{entregada}` — solo órdenes cobradas; con
+  `false` se reabre.
+
+Comanda y ticket incluyen `texto`: el contenido ya formateado a 32 columnas
+para impresora térmica de 58 mm. El frontend solo lo manda a imprimir.
 
 El avance por sprints está en [SPRINTS.md](SPRINTS.md).
 

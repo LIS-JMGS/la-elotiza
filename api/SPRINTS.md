@@ -9,8 +9,8 @@ migración de Alembic, si toca tablas. Los números RF son los de
 | 1 | Cimientos | — | ✅ Hecho |
 | 2 | Usuarios, login con PIN y equipo | 27-29 | ✅ Hecho |
 | 3 | Catálogo administrable y menú | 3-5, 30 | ✅ Hecho |
-| 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ✅ Hecho (pendiente de revisar) |
-| 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ⬜ Pendiente |
+| 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ✅ Hecho |
+| 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ✅ Hecho (pendiente de revisar) |
 | 6 | Corte de caja y cierre de turno | 20-26, 37-38 | ⬜ Pendiente |
 
 ---
@@ -81,12 +81,20 @@ negocio todavía.
 
 ## Sprint 5 · Cobro, ticket y cocina
 
-- [ ] Modelo `pagos` + migración.
-- [ ] Cobro en efectivo (cambio) o transferencia (concepto único + liga de WhatsApp).
-- [ ] La orden cobrada se cierra y ya no se modifica.
-- [ ] Ticket y comanda en texto para impresora térmica de 58 mm.
-- [ ] Cocina: lista en preparación, marcar preparados, entregar.
-- [ ] Pruebas.
+- [x] Modelo `pagos` y columnas `ordenes.entregada` / `orden_items.preparado`
+      + migración `pagos y cocina` (probada sobre una base con órdenes).
+- [x] `POST /ordenes/{id}/cobro`: efectivo (calcula el cambio; rechaza si no
+      alcanza) o transferencia. Exige la comanda al día.
+- [x] `GET /ordenes/{id}/transferencia?telefono=`: concepto único
+      `ELO-DDMM-0001-NOMBRE` y liga de WhatsApp con el mensaje.
+- [x] El cobro cierra la orden y ya no se puede modificar ni cancelar.
+- [x] `servicios/impresion.py`: comanda y ticket en texto de 32 columnas para
+      impresora térmica de 58 mm; `GET /ordenes/{id}/ticket` para reimprimir.
+- [x] Cocina: `PUT /ordenes/{id}/items/{item_id}/preparado`,
+      `PUT /ordenes/{id}/preparado` (todos) y `PUT /ordenes/{id}/entrega`
+      (solo órdenes cobradas; se puede reabrir).
+- [x] Filtro `entregadas`; `en_preparacion` ya no incluye las entregadas.
+- [x] 15 pruebas en `test_cobro.py`.
 
 ## Sprint 6 · Corte de caja y cierre de turno
 
