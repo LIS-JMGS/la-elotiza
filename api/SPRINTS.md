@@ -7,8 +7,8 @@ migración de Alembic, si toca tablas. Los números RF son los de
 | Sprint | Tema | RF | Estado |
 | --- | --- | --- | --- |
 | 1 | Cimientos | — | ✅ Hecho |
-| 2 | Usuarios, login con PIN y equipo | 27-29 | ✅ Hecho (pendiente de revisar) |
-| 3 | Catálogo administrable y menú | 3-5, 30 | ⬜ Pendiente |
+| 2 | Usuarios, login con PIN y equipo | 27-29 | ✅ Hecho |
+| 3 | Catálogo administrable y menú | 3-5, 30 | ✅ Hecho (pendiente de revisar) |
 | 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ⬜ Pendiente |
 | 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ⬜ Pendiente |
 | 6 | Corte de caja y cierre de turno | 20-26, 37-38 | ⬜ Pendiente |
@@ -48,14 +48,20 @@ negocio todavía.
 
 ## Sprint 3 · Catálogo administrable y menú
 
-- [ ] Modelos: categorías, productos, presentaciones, grupos de modificadores,
+- [x] Modelos: categorías, productos, presentaciones, grupos de modificadores,
       modificadores y ligas producto-grupo (mínimo, máximo, incluidas,
-      solo para una presentación, opciones excluidas) + migración.
-- [ ] Reglas: validar personalización y calcular precio.
-- [ ] `GET /menu`, `POST /menu/cotizar`, marcar agotados.
-- [ ] Administración `/catalogo/*` para encargado.
-- [ ] Semilla con el menú del prototipo (`uv run cargar-menu`).
-- [ ] Pruebas.
+      solo para una presentación, opciones excluidas) + migración `catalogo`.
+- [x] `servicios/catalogo.py`: `armar_linea` valida la personalización y
+      calcula el precio (presentación u producto + opciones − incluidas).
+- [x] `GET /menu` (por categoría, con las reglas de cada grupo) y
+      `POST /menu/cotizar` para el precio en vivo.
+- [x] Marcar agotados: `PUT /menu/productos/{id}/disponible` y
+      `PUT /menu/modificadores/{id}/disponible` (cualquier usuario).
+- [x] Administración `/catalogo/*` solo para encargado; nada se borra, se
+      desactiva.
+- [x] `semilla.py`: menú del prototipo (`uv run cargar-menu`, `pnpm run seed:api`);
+      solo carga si el catálogo está vacío.
+- [x] 21 pruebas en `test_catalogo.py`.
 
 ## Sprint 4 · Turno, órdenes y comanda
 

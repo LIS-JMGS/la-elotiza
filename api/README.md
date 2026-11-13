@@ -6,7 +6,7 @@ Desde el raíz del repositorio:
 
 ```bash
 pnpm run install:api
-pnpm run dev:api        # aplica migraciones y levanta con recarga
+pnpm run dev:api        # migraciones + menú inicial + servidor con recarga
 ```
 
 - API: http://127.0.0.1:8000
@@ -80,6 +80,37 @@ antes de usar la API en el local.
 
 Las rutas protegidas piden `Authorization: Bearer <token>`. Los PIN se
 guardan con hash PBKDF2 y de los tokens solo se guarda su hash.
+
+## Catálogo y menú
+
+```text
+Categoría → Producto → Presentación (tamaño con precio)
+                     ↘ Liga → Grupo de modificadores → Modificador (opción con precio)
+```
+
+Una **liga** pega un grupo a un producto con sus reglas:
+
+| Campo | Para qué | Ejemplo del menú |
+| --- | --- | --- |
+| `minimo` / `maximo` | Cuántas opciones se eligen | Supremo: 2 y 2 sabritas |
+| `incluidas` | Cuántas van sin costo (las más baratas) | Sabriramen: 1 topping incluido |
+| `presentacion_id` | El grupo solo aplica con ese tamaño | Sabriesquite 20 oz admite Tostitos |
+| `excluidos` | Opciones del grupo que no se ofrecen | Elote tradicional sin tocino |
+
+El precio de una pieza es el de la presentación (o el del producto) más la
+suma de las opciones elegidas, menos las incluidas.
+
+- `GET /menu` — categorías → productos activos con presentaciones y grupos.
+- `POST /menu/cotizar` `{producto_id, presentacion_id?, modificadores: [ids], cantidad}`
+  → precio y texto de detalle; 422 con `errores` si falta algo obligatorio.
+- `PUT /menu/productos/{id}/disponible`, `PUT /menu/modificadores/{id}/disponible`
+  — marcar agotados (cualquier usuario).
+- `/catalogo/*` — altas y cambios de categorías, productos, presentaciones,
+  grupos, opciones y ligas (solo encargado). Nada se borra: se desactiva con
+  `activo=false`.
+
+El menú inicial sale de `semilla.py` y solo se carga si el catálogo está
+vacío: `uv run cargar-menu` (o `pnpm run seed:api` desde el raíz).
 
 El avance por sprints está en [SPRINTS.md](SPRINTS.md).
 
