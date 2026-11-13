@@ -1,6 +1,8 @@
 # API de La Elotiza
 
-Backend con FastAPI. Requiere Python 3.12 o superior y uv.
+Backend del POS con FastAPI, SQLAlchemy 2 y Alembic: login con PIN, catálogo
+administrable, órdenes, comanda, cobro, cocina y corte de caja. Requiere
+Python 3.12 o superior y uv.
 
 Desde el raíz del repositorio:
 
@@ -153,6 +155,41 @@ precio, así que cambiar el catálogo no altera órdenes ya levantadas.
 Comanda y ticket incluyen `texto`: el contenido ya formateado a 32 columnas
 para impresora térmica de 58 mm. El frontend solo lo manda a imprimir.
 
-El avance por sprints está en [SPRINTS.md](SPRINTS.md).
+## Corte de caja
+
+- `GET /turnos/actual/corte?efectivo_contado=` — calcula el corte sin cerrar:
+  total vendido, efectivo, transferencias, fondo, efectivo esperado
+  (fondo + ventas en efectivo), contado y diferencia. Las órdenes canceladas
+  no cuentan.
+- `POST /turnos/actual/cierre` `{efectivo_contado}` — cierra el turno y
+  devuelve el corte con su `texto` para imprimir. Responde 409 con los folios
+  si quedan órdenes sin cobrar o cancelar.
+- `GET /turnos/{id}/corte` — reimprime el corte de un turno cerrado.
+
+## Estructura
+
+```text
+src/la_elotiza_api/
+├── main.py        # create_app(): routers, CORS y manejo de errores
+├── config.py      # Settings desde variables de entorno
+├── db.py          # motor, sesiones y Base
+├── tipos.py       # Dinero (centavos enteros) y FechaUTC
+├── models.py      # tablas de usuarios, catálogo, turnos, órdenes y pagos
+├── schemas.py     # entrada/salida (Pydantic)
+├── deps.py        # sesión de base, usuario actual, encargado
+├── errores.py     # errores de dominio → códigos HTTP
+├── seguridad.py   # hash de PIN (PBKDF2) y de tokens
+├── semilla.py     # menú inicial (`uv run cargar-menu`)
+├── servicios/     # lógica de negocio, sin HTTP
+└── routers/       # endpoints delgados que llaman a servicios
+migrations/        # Alembic (una migración por sprint con tablas)
+tests/             # pytest con SQLite en memoria
+```
+
+Los routers solo traducen HTTP ↔ servicios; las reglas viven en `servicios/`
+y se prueban de punta a punta desde `tests/`.
+
+El avance por sprints y la cobertura de requisitos están en
+[SPRINTS.md](SPRINTS.md).
 
 Esta carpeta pertenece al repositorio Git raíz; no ejecutar `git init` aquí.

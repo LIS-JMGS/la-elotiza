@@ -346,6 +346,7 @@ class TurnoOut(Esquema):
     abierto_en: datetime
     abierto_por: UsuarioOut
     cerrado_en: datetime | None
+    efectivo_contado: Dinero | None
 
 
 # --- Órdenes ----------------------------------------------------------------
@@ -473,3 +474,34 @@ class PreparadoIn(Esquema):
 
 class EntregaIn(Esquema):
     entregada: bool = True
+
+
+# --- Corte de caja ----------------------------------------------------------
+
+
+class CerrarTurnoIn(Esquema):
+    efectivo_contado: DineroEntrada
+
+
+class TransferenciaCorteOut(Esquema):
+    folio: str
+    concepto: str
+    cliente: str
+    monto: Dinero
+    whatsapp_enviado: bool
+
+
+class CorteOut(Esquema):
+    turno: TurnoOut
+    ordenes_cobradas: int
+    ordenes_canceladas: int
+    ordenes_pendientes: int
+    total_ventas: Dinero
+    total_efectivo: Dinero
+    total_transferencia: Dinero
+    fondo: Dinero
+    efectivo_esperado: Dinero = Field(description="Fondo + ventas en efectivo")
+    efectivo_contado: Dinero | None
+    diferencia: Dinero | None = Field(description="Contado − esperado")
+    transferencias: list[TransferenciaCorteOut]
+    texto: str = Field(description="Listo para impresora térmica de 58 mm")

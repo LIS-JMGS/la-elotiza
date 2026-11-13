@@ -10,8 +10,8 @@ migración de Alembic, si toca tablas. Los números RF son los de
 | 2 | Usuarios, login con PIN y equipo | 27-29 | ✅ Hecho |
 | 3 | Catálogo administrable y menú | 3-5, 30 | ✅ Hecho |
 | 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ✅ Hecho |
-| 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ✅ Hecho (pendiente de revisar) |
-| 6 | Corte de caja y cierre de turno | 20-26, 37-38 | ⬜ Pendiente |
+| 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ✅ Hecho |
+| 6 | Corte de caja y cierre de turno | 20-26, 37-38 | ✅ Hecho (pendiente de revisar) |
 
 ---
 
@@ -98,7 +98,43 @@ negocio todavía.
 
 ## Sprint 6 · Corte de caja y cierre de turno
 
-- [ ] Corte: total, efectivo, transferencias, fondo, esperado, contado y diferencia.
-- [ ] Las canceladas no cuentan.
-- [ ] Cerrar turno (pide cobrar o cancelar pendientes) e imprimir el corte.
-- [ ] Pruebas y README final.
+- [x] `calcular_corte`: total vendido, efectivo, transferencias, fondo,
+      efectivo esperado (fondo + ventas en efectivo), contado y diferencia.
+- [x] Las órdenes canceladas no cuentan en los totales (RF 20).
+- [x] `GET /turnos/actual/corte?efectivo_contado=` calcula sin cerrar.
+- [x] `POST /turnos/actual/cierre` registra el efectivo contado y cierra el
+      turno; pide cobrar o cancelar las órdenes pendientes.
+- [x] `GET /turnos/{id}/corte` para reimprimir un corte ya cerrado.
+- [x] Corte en texto de 32 columnas, con la lista de transferencias para conciliar.
+- [x] 12 pruebas en `test_corte.py`.
+- [x] README final con estructura del proyecto.
+
+No lleva migración: la tabla `turnos` ya tenía `cerrado_en`, `cerrado_por_id`
+y `efectivo_contado` desde el sprint 4.
+
+---
+
+## Cobertura de requisitos
+
+| RF | Dónde se cumple |
+| --- | --- |
+| 1-2 | `POST /ordenes`, `PATCH /ordenes/{id}` |
+| 3-6 | `POST /ordenes/{id}/items` (cantidad, presentación, modificadores, nota) |
+| 7 | `Orden.total` se calcula de sus productos en cada respuesta |
+| 8-9 | `PATCH` / `DELETE /ordenes/{id}/items/{item_id}` |
+| 10-11 | `POST /ordenes/{id}/confirmar` → comanda con folio |
+| 12-15 | `POST /ordenes/{id}/cobro` |
+| 16 | `_exigir_editable` en `servicios/ordenes.py` |
+| 17-18 | `TicketOut.texto`, `GET /ordenes/{id}/ticket` |
+| 19-20 | `POST /ordenes/{id}/cancelar`; `calcular_corte` las excluye |
+| 21 | Tablas `ordenes` y `pagos` ligadas al turno |
+| 22-26 | `GET /turnos/actual/corte`, `POST /turnos/actual/cierre` |
+| 27 | `GET /auth/usuarios`, `POST /auth/login` |
+| 28-29 | `/equipo` solo para encargado |
+| 30 | `armar_linea` en `servicios/catalogo.py` |
+| 31-32 | `confirmar` y `comanda_al_dia` |
+| 33 | `Pago.cambio` |
+| 34 | `GET /ordenes/{id}/transferencia` |
+| 35-36 | `GET /ordenes`, `/preparado`, `/entrega` |
+| 37 | `efectivo_esperado = fondo + efectivo` |
+| 38 | `CorteOut.texto` al cerrar el turno |

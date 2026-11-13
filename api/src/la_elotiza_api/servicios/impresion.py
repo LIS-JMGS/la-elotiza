@@ -1,7 +1,7 @@
 """Texto plano para impresora térmica de 58 mm (32 columnas).
 
-El frontend lo manda a imprimir tal cual (RF 18); así comanda y ticket salen
-iguales desde cualquier dispositivo.
+El frontend lo manda a imprimir tal cual (RF 18 y 38); así comanda, ticket y
+corte salen iguales desde cualquier dispositivo.
 """
 
 import textwrap
@@ -10,6 +10,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from la_elotiza_api.models import Comanda, MetodoPago, Orden
+from la_elotiza_api.servicios.turnos import Corte
 
 ANCHO = 32
 LINEA = "-" * ANCHO
@@ -83,4 +84,35 @@ def ticket(orden: Orden, tz: ZoneInfo) -> str:
             f"Concepto: {pago.concepto}",
         ]
     out += [LINEA, "¡Gracias por tu compra!".center(ANCHO)]
+    return "\n".join(out) + "\n"
+
+
+def corte(c: Corte, tz: ZoneInfo) -> str:
+    t = c.turno
+    out = _encabezado("CORTE DE CAJA")
+    out += [
+        _par("Turno", f"#{t.id}"),
+        _par("Abrió", _fecha(t.abierto_en, tz)),
+        _par("Corte", _fecha(c.calculado_en, tz)),
+        LINEA,
+        _par("Órdenes cobradas", str(c.ordenes_cobradas)),
+        _par("Canceladas (no cuentan)", str(c.ordenes_canceladas)),
+        LINEA,
+        _par("Total vendido", _dinero(c.total_ventas)),
+        _par("Efectivo", _dinero(c.total_efectivo)),
+        _par("Transferencia", _dinero(c.total_transferencia)),
+        LINEA,
+        _par("Fondo de caja", _dinero(c.fondo)),
+        _par("Efectivo esperado", _dinero(c.efectivo_esperado)),
+    ]
+    if c.efectivo_contado is not None and c.diferencia is not None:
+        out += [
+            _par("Efectivo contado", _dinero(c.efectivo_contado)),
+            _par("Diferencia", _dinero(c.diferencia)),
+        ]
+    if c.transferencias:
+        out += [LINEA, "Transferencias:"]
+        for tr in c.transferencias:
+            out += [tr.concepto, _par(f"  {tr.cliente}", _dinero(tr.monto))]
+    out.append(LINEA)
     return "\n".join(out) + "\n"
