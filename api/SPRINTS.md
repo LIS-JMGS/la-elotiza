@@ -6,8 +6,8 @@ migración de Alembic, si toca tablas. Los números RF son los de
 
 | Sprint | Tema | RF | Estado |
 | --- | --- | --- | --- |
-| 1 | Cimientos | — | ✅ Hecho (pendiente de revisar) |
-| 2 | Usuarios, login con PIN y equipo | 27-29 | ⬜ Pendiente |
+| 1 | Cimientos | — | ✅ Hecho |
+| 2 | Usuarios, login con PIN y equipo | 27-29 | ✅ Hecho (pendiente de revisar) |
 | 3 | Catálogo administrable y menú | 3-5, 30 | ⬜ Pendiente |
 | 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ⬜ Pendiente |
 | 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ⬜ Pendiente |
@@ -34,13 +34,17 @@ negocio todavía.
 
 ## Sprint 2 · Usuarios, login con PIN y equipo
 
-- [ ] Modelos `usuarios` y `sesiones` + migración.
-- [ ] PIN con hash PBKDF2; token de sesión (solo se guarda su hash) con expiración.
-- [ ] Bloqueo de 5 minutos tras 5 PIN incorrectos.
-- [ ] `GET /auth/usuarios`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/yo`.
-- [ ] Encargado inicial si no hay usuarios.
-- [ ] `GET/POST /equipo`, `DELETE /equipo/{id}` solo para encargado.
-- [ ] Pruebas.
+- [x] Modelos `usuarios` y `sesiones` + migración `usuarios y sesiones`.
+- [x] `seguridad.py`: PIN con hash PBKDF2 y sal; del token de sesión solo se
+      guarda su hash.
+- [x] Sesiones con expiración (`LA_ELOTIZA_SESION_HORAS`, 14 h por defecto).
+- [x] Bloqueo de 5 minutos tras 5 PIN incorrectos.
+- [x] `GET /auth/usuarios`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/yo`.
+- [x] Encargado inicial si no hay usuarios (`LA_ELOTIZA_ADMIN_NOMBRE` / `_PIN`).
+- [x] `GET/POST /equipo`, `DELETE /equipo/{id}` solo para encargado; no se
+      puede quitar a uno mismo ni al último encargado; quitar cierra sesiones.
+- [x] `deps.py`: `UsuarioActual` y `Encargado` como dependencias reutilizables.
+- [x] 14 pruebas en `test_auth_equipo.py`.
 
 ## Sprint 3 · Catálogo administrable y menú
 

@@ -10,6 +10,13 @@ class Settings:
     database_url: str = "sqlite:///./la_elotiza.db"
     zona_horaria: str = "America/Mexico_City"
     cors_origins: tuple[str, ...] = ("http://localhost:3000",)
+    # Encargado inicial: se crea solo si la tabla de usuarios está vacía.
+    admin_nombre: str = "Encargado"
+    admin_pin: str = "1234"
+    sesion_horas: int = 14
+    # Tras `max_intentos_pin` fallos seguidos se bloquea `bloqueo_minutos`.
+    max_intentos_pin: int = 5
+    bloqueo_minutos: int = 5
 
     @property
     def tz(self) -> ZoneInfo:
@@ -27,4 +34,7 @@ class Settings:
                 if origins
                 else d.cors_origins
             ),
+            admin_nombre=os.getenv("LA_ELOTIZA_ADMIN_NOMBRE", d.admin_nombre),
+            admin_pin=os.getenv("LA_ELOTIZA_ADMIN_PIN", d.admin_pin),
+            sesion_horas=int(os.getenv("LA_ELOTIZA_SESION_HORAS", d.sesion_horas)),
         )

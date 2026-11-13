@@ -58,10 +58,28 @@ uv run alembic check                                     # modelos == migracione
 | `LA_ELOTIZA_DATABASE_URL` | `sqlite:///./la_elotiza.db` | Base de datos (SQLAlchemy) |
 | `LA_ELOTIZA_ZONA_HORARIA` | `America/Mexico_City` | Fechas de ticket, comanda y corte |
 | `LA_ELOTIZA_CORS_ORIGINS` | `http://localhost:3000` | Orígenes del frontend, separados por coma |
+| `LA_ELOTIZA_ADMIN_NOMBRE` / `LA_ELOTIZA_ADMIN_PIN` | `Encargado` / `1234` | Encargado inicial |
+| `LA_ELOTIZA_SESION_HORAS` | `14` | Duración del token de sesión |
 
 Los importes se guardan como centavos enteros (`tipos.Dinero`) y las fechas
 en UTC (`tipos.FechaUTC`). Los servicios lanzan errores de `errores.py` y
 `main.py` los convierte en respuestas `{"detail", "errores"}`.
+
+## Sesión y equipo
+
+En el primer arranque, si no hay usuarios, se crea un **encargado inicial**
+con `LA_ELOTIZA_ADMIN_NOMBRE` / `LA_ELOTIZA_ADMIN_PIN`. Cambia esos valores
+antes de usar la API en el local.
+
+- `GET /auth/usuarios` — nombres para la pantalla de inicio (sin sesión).
+- `POST /auth/login` `{usuario_id, pin}` → `{token, expira_en, usuario}`.
+  Tras 5 PIN incorrectos el usuario se bloquea 5 minutos (429).
+- `POST /auth/logout`, `GET /auth/yo`.
+- `GET/POST /equipo`, `DELETE /equipo/{id}` — solo encargado. Quitar a
+  alguien es una baja lógica y cierra sus sesiones.
+
+Las rutas protegidas piden `Authorization: Bearer <token>`. Los PIN se
+guardan con hash PBKDF2 y de los tokens solo se guarda su hash.
 
 El avance por sprints está en [SPRINTS.md](SPRINTS.md).
 
