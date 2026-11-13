@@ -1,12 +1,14 @@
 # API de La Elotiza
 
-Backend con FastAPI. Requiere Python 3.12 o superior y uv.
+Backend del POS con FastAPI, SQLAlchemy 2 y Alembic: login con PIN, catálogo
+administrable, órdenes, comanda, cobro, cocina y corte de caja. Requiere
+Python 3.12 o superior y uv.
 
 Desde el raíz del repositorio:
 
 ```bash
 pnpm run install:api
-pnpm run dev:api
+pnpm run dev:api        # migraciones + menú inicial + servidor con recarga
 ```
 
 - API: http://127.0.0.1:8000
@@ -40,7 +42,154 @@ de `pyproject.toml` y uv instala el paquete en el entorno automáticamente.
 para reproducir las dependencias. Agregar dependencias con `uv add` desde
 esta carpeta (o `uv add --dev` para herramientas de desarrollo).
 
-El endpoint de salud solo verifica que la aplicación responde. Todavía no
-hay base de datos, autenticación ni integración con el frontend.
+El endpoint de salud solo verifica que la aplicación responde.
+
+## Base de datos y configuración
+
+SQLAlchemy 2 con migraciones de Alembic. Por defecto usa SQLite en
+`api/la_elotiza.db` (ignorada por Git). Desde `api/`:
+
+```bash
+uv run alembic upgrade head                              # aplicar migraciones
+uv run alembic revision --autogenerate -m "descripción"  # al cambiar modelos
+uv run alembic check                                     # modelos == migraciones
+```
+
+| Variable | Por defecto | Uso |
+| --- | --- | --- |
+| `LA_ELOTIZA_DATABASE_URL` | `sqlite:///./la_elotiza.db` | Base de datos (SQLAlchemy) |
+| `LA_ELOTIZA_ZONA_HORARIA` | `America/Mexico_City` | Fechas de ticket, comanda y corte |
+| `LA_ELOTIZA_CORS_ORIGINS` | `http://localhost:3000` | Orígenes del frontend, separados por coma |
+| `LA_ELOTIZA_ADMIN_NOMBRE` / `LA_ELOTIZA_ADMIN_PIN` | `Encargado` / `1234` | Encargado inicial |
+| `LA_ELOTIZA_SESION_HORAS` | `14` | Duración del token de sesión |
+| `LA_ELOTIZA_FONDO_CAJA` | `500` | Fondo si al abrir turno no se indica |
+| `LA_ELOTIZA_DATOS_TRANSFERENCIA` | vacío | Banco/CLABE que se agrega al mensaje de WhatsApp |
+
+Los importes se guardan como centavos enteros (`tipos.Dinero`) y las fechas
+en UTC (`tipos.FechaUTC`). Los servicios lanzan errores de `errores.py` y
+`main.py` los convierte en respuestas `{"detail", "errores"}`.
+
+## Sesión y equipo
+
+En el primer arranque, si no hay usuarios, se crea un **encargado inicial**
+con `LA_ELOTIZA_ADMIN_NOMBRE` / `LA_ELOTIZA_ADMIN_PIN`. Cambia esos valores
+antes de usar la API en el local.
+
+- `GET /auth/usuarios` — nombres para la pantalla de inicio (sin sesión).
+- `POST /auth/login` `{usuario_id, pin}` → `{token, expira_en, usuario}`.
+  Tras 5 PIN incorrectos el usuario se bloquea 5 minutos (429).
+- `POST /auth/logout`, `GET /auth/yo`.
+- `GET/POST /equipo`, `DELETE /equipo/{id}` — solo encargado. Quitar a
+  alguien es una baja lógica y cierra sus sesiones.
+
+Las rutas protegidas piden `Authorization: Bearer <token>`. Los PIN se
+guardan con hash PBKDF2 y de los tokens solo se guarda su hash.
+
+## Catálogo y menú
+
+```text
+Categoría → Producto → Presentación (tamaño con precio)
+                     ↘ Liga → Grupo de modificadores → Modificador (opción con precio)
+```
+
+Una **liga** pega un grupo a un producto con sus reglas:
+
+| Campo | Para qué | Ejemplo del menú |
+| --- | --- | --- |
+| `minimo` / `maximo` | Cuántas opciones se eligen | Supremo: 2 y 2 sabritas |
+| `incluidas` | Cuántas van sin costo (las más baratas) | Sabriramen: 1 topping incluido |
+| `presentacion_id` | El grupo solo aplica con ese tamaño | Sabriesquite 20 oz admite Tostitos |
+| `excluidos` | Opciones del grupo que no se ofrecen | Elote tradicional sin tocino |
+
+El precio de una pieza es el de la presentación (o el del producto) más la
+suma de las opciones elegidas, menos las incluidas.
+
+- `GET /menu` — categorías → productos activos con presentaciones y grupos.
+- `POST /menu/cotizar` `{producto_id, presentacion_id?, modificadores: [ids], cantidad}`
+  → precio y texto de detalle; 422 con `errores` si falta algo obligatorio.
+- `PUT /menu/productos/{id}/disponible`, `PUT /menu/modificadores/{id}/disponible`
+  — marcar agotados (cualquier usuario).
+- `/catalogo/*` — altas y cambios de categorías, productos, presentaciones,
+  grupos, opciones y ligas (solo encargado). Nada se borra: se desactiva con
+  `activo=false`.
+
+El menú inicial sale de `semilla.py` y solo se carga si el catálogo está
+vacío: `uv run cargar-menu` (o `pnpm run seed:api` desde el raíz).
+
+## Turno, órdenes y comanda
+
+Una orden vive dentro de un **turno** (la jornada de caja). Solo puede haber
+un turno abierto y sin él no se levantan órdenes.
+
+- `POST /turnos` `{fondo?}` — abre el turno; `GET /turnos/actual`.
+- `POST /ordenes` `{cliente?}` — nueva orden; `PATCH /ordenes/{id}` cambia el cliente.
+- `POST /ordenes/{id}/items` `{producto_id, presentacion_id?, modificadores: [ids], cantidad, nota}`.
+- `PATCH /ordenes/{id}/items/{item_id}` `{cantidad?, nota?, personalizacion?}` —
+  `personalizacion` reemplaza presentación y modificadores completos.
+- `DELETE /ordenes/{id}/items/{item_id}`.
+- `POST /ordenes/{id}/confirmar` — genera la comanda con el folio de la orden.
+  Exige productos y nombre del cliente. Si después cambia algo, la orden queda
+  con `comanda_al_dia=false` y al confirmar de nuevo sale la versión siguiente.
+- `GET /ordenes/{id}/comanda`, `POST /ordenes/{id}/cancelar`.
+- `GET /ordenes?filtro=en_preparacion|entregadas|canceladas|todas` — órdenes del turno abierto.
+
+Estados de una orden: `abierta` (editable) → `cerrada` (cobrada) o `cancelada`.
+Cada producto de la orden guarda copia de su nombre, presentación, opciones y
+precio, así que cambiar el catálogo no altera órdenes ya levantadas.
+
+## Cobro, ticket y cocina
+
+- `GET /ordenes/{id}/transferencia?telefono=` — concepto único
+  (`ELO-DDMM-0001-NOMBRE`, sin acentos), mensaje y liga `wa.me` para
+  mandárselo al cliente.
+- `POST /ordenes/{id}/cobro` `{metodo, recibido?, whatsapp_enviado?}` — registra
+  el pago, cierra la orden y devuelve el ticket. En efectivo calcula el
+  cambio; si se omite `recibido` se toma el total exacto. Exige que la
+  comanda esté al día.
+- `GET /ordenes/{id}/ticket` — para reimprimir.
+- `PUT /ordenes/{id}/items/{item_id}/preparado` y `PUT /ordenes/{id}/preparado`
+  `{preparado}` — cocina marca uno o todos los productos.
+- `PUT /ordenes/{id}/entrega` `{entregada}` — solo órdenes cobradas; con
+  `false` se reabre.
+
+Comanda y ticket incluyen `texto`: el contenido ya formateado a 32 columnas
+para impresora térmica de 58 mm. El frontend solo lo manda a imprimir.
+
+## Corte de caja
+
+- `GET /turnos/actual/corte?efectivo_contado=` — calcula el corte sin cerrar:
+  total vendido, efectivo, transferencias, fondo, efectivo esperado
+  (fondo + ventas en efectivo), contado y diferencia. Las órdenes canceladas
+  no cuentan.
+- `POST /turnos/actual/cierre` `{efectivo_contado}` — cierra el turno y
+  devuelve el corte con su `texto` para imprimir. Responde 409 con los folios
+  si quedan órdenes sin cobrar o cancelar.
+- `GET /turnos/{id}/corte` — reimprime el corte de un turno cerrado.
+
+## Estructura
+
+```text
+src/la_elotiza_api/
+├── main.py        # create_app(): routers, CORS y manejo de errores
+├── config.py      # Settings desde variables de entorno
+├── db.py          # motor, sesiones y Base
+├── tipos.py       # Dinero (centavos enteros) y FechaUTC
+├── models.py      # tablas de usuarios, catálogo, turnos, órdenes y pagos
+├── schemas.py     # entrada/salida (Pydantic)
+├── deps.py        # sesión de base, usuario actual, encargado
+├── errores.py     # errores de dominio → códigos HTTP
+├── seguridad.py   # hash de PIN (PBKDF2) y de tokens
+├── semilla.py     # menú inicial (`uv run cargar-menu`)
+├── servicios/     # lógica de negocio, sin HTTP
+└── routers/       # endpoints delgados que llaman a servicios
+migrations/        # Alembic (una migración por sprint con tablas)
+tests/             # pytest con SQLite en memoria
+```
+
+Los routers solo traducen HTTP ↔ servicios; las reglas viven en `servicios/`
+y se prueban de punta a punta desde `tests/`.
+
+El avance por sprints y la cobertura de requisitos están en
+[SPRINTS.md](SPRINTS.md).
 
 Esta carpeta pertenece al repositorio Git raíz; no ejecutar `git init` aquí.

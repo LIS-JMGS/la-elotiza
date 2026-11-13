@@ -12,7 +12,9 @@
     "check:front": "pnpm run lint:front && pnpm run typecheck:front",
 
     "install:api": "uv sync --directory api --locked",
-    "dev:api": "uv run --directory api --locked app --reload",
+    "migrate:api": "uv run --directory api --locked alembic upgrade head",
+    "seed:api": "uv run --directory api --locked cargar-menu",
+    "dev:api": "pnpm run migrate:api && pnpm run seed:api && uv run --directory api --locked app --reload",
     "test:api": "uv run --directory api --locked pytest",
     "lint:api": "uv run --directory api --locked ruff check .",
     "format:check:api": "uv run --directory api --locked ruff format --check .",
