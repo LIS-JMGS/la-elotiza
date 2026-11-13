@@ -2,6 +2,7 @@
 
 import os
 from dataclasses import dataclass
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 
@@ -17,6 +18,8 @@ class Settings:
     # Tras `max_intentos_pin` fallos seguidos se bloquea `bloqueo_minutos`.
     max_intentos_pin: int = 5
     bloqueo_minutos: int = 5
+    # Fondo de caja si al abrir el turno no se indica otro.
+    fondo_caja: Decimal = Decimal("500")
 
     @property
     def tz(self) -> ZoneInfo:
@@ -37,4 +40,5 @@ class Settings:
             admin_nombre=os.getenv("LA_ELOTIZA_ADMIN_NOMBRE", d.admin_nombre),
             admin_pin=os.getenv("LA_ELOTIZA_ADMIN_PIN", d.admin_pin),
             sesion_horas=int(os.getenv("LA_ELOTIZA_SESION_HORAS", d.sesion_horas)),
+            fondo_caja=Decimal(os.getenv("LA_ELOTIZA_FONDO_CAJA", str(d.fondo_caja))),
         )

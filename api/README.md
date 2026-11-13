@@ -60,6 +60,7 @@ uv run alembic check                                     # modelos == migracione
 | `LA_ELOTIZA_CORS_ORIGINS` | `http://localhost:3000` | Orígenes del frontend, separados por coma |
 | `LA_ELOTIZA_ADMIN_NOMBRE` / `LA_ELOTIZA_ADMIN_PIN` | `Encargado` / `1234` | Encargado inicial |
 | `LA_ELOTIZA_SESION_HORAS` | `14` | Duración del token de sesión |
+| `LA_ELOTIZA_FONDO_CAJA` | `500` | Fondo si al abrir turno no se indica |
 
 Los importes se guardan como centavos enteros (`tipos.Dinero`) y las fechas
 en UTC (`tipos.FechaUTC`). Los servicios lanzan errores de `errores.py` y
@@ -111,6 +112,27 @@ suma de las opciones elegidas, menos las incluidas.
 
 El menú inicial sale de `semilla.py` y solo se carga si el catálogo está
 vacío: `uv run cargar-menu` (o `pnpm run seed:api` desde el raíz).
+
+## Turno, órdenes y comanda
+
+Una orden vive dentro de un **turno** (la jornada de caja). Solo puede haber
+un turno abierto y sin él no se levantan órdenes.
+
+- `POST /turnos` `{fondo?}` — abre el turno; `GET /turnos/actual`.
+- `POST /ordenes` `{cliente?}` — nueva orden; `PATCH /ordenes/{id}` cambia el cliente.
+- `POST /ordenes/{id}/items` `{producto_id, presentacion_id?, modificadores: [ids], cantidad, nota}`.
+- `PATCH /ordenes/{id}/items/{item_id}` `{cantidad?, nota?, personalizacion?}` —
+  `personalizacion` reemplaza presentación y modificadores completos.
+- `DELETE /ordenes/{id}/items/{item_id}`.
+- `POST /ordenes/{id}/confirmar` — genera la comanda con el folio de la orden.
+  Exige productos y nombre del cliente. Si después cambia algo, la orden queda
+  con `comanda_al_dia=false` y al confirmar de nuevo sale la versión siguiente.
+- `GET /ordenes/{id}/comanda`, `POST /ordenes/{id}/cancelar`.
+- `GET /ordenes?filtro=en_preparacion|canceladas|todas` — órdenes del turno abierto.
+
+Estados de una orden: `abierta` (editable) → `cerrada` (cobrada) o `cancelada`.
+Cada producto de la orden guarda copia de su nombre, presentación, opciones y
+precio, así que cambiar el catálogo no altera órdenes ya levantadas.
 
 El avance por sprints está en [SPRINTS.md](SPRINTS.md).
 

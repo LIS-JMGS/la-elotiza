@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from la_elotiza_api.config import Settings
 from la_elotiza_api.db import make_engine, make_sessionmaker
 from la_elotiza_api.errores import ErrorDominio
-from la_elotiza_api.routers import auth, catalogo, equipo, menu
+from la_elotiza_api.routers import auth, catalogo, equipo, menu, ordenes, turno
 from la_elotiza_api.servicios.auth import crear_encargado_inicial
 
 
@@ -56,7 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Indica que el proceso responde; no comprueba servicios externos."""
         return HealthResponse()
 
-    for r in (auth, equipo, menu, catalogo):
+    for r in (auth, equipo, menu, catalogo, turno, ordenes):
         app.include_router(r.router)
 
     return app

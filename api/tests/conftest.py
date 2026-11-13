@@ -119,3 +119,34 @@ def item(menu) -> Callable[..., dict]:
         return cuerpo
 
     return _item
+
+
+@pytest.fixture
+def turno(client: TestClient, cajero) -> dict:
+    """Turno abierto con $500 de fondo."""
+    r = client.post("/turnos", json={"fondo": 500}, headers=cajero)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+@pytest.fixture
+def nueva_orden(client: TestClient, cajero, turno, item) -> Callable[..., dict]:
+    """Crea una orden con productos y opcionalmente la confirma."""
+
+    def _nueva(
+        cliente: str = "Karla",
+        items: list[dict] | None = None,
+        confirmar: bool = True,
+    ) -> dict:
+        orden = client.post("/ordenes", json={"cliente": cliente}, headers=cajero)
+        assert orden.status_code == 201, orden.text
+        oid = orden.json()["id"]
+        for item_ in items or [item("Coca-Cola", cantidad=2)]:
+            r = client.post(f"/ordenes/{oid}/items", json=item_, headers=cajero)
+            assert r.status_code == 201, r.text
+        if confirmar:
+            r = client.post(f"/ordenes/{oid}/confirmar", headers=cajero)
+            assert r.status_code == 200, r.text
+        return client.get(f"/ordenes/{oid}", headers=cajero).json()
+
+    return _nueva

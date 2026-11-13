@@ -8,8 +8,8 @@ migración de Alembic, si toca tablas. Los números RF son los de
 | --- | --- | --- | --- |
 | 1 | Cimientos | — | ✅ Hecho |
 | 2 | Usuarios, login con PIN y equipo | 27-29 | ✅ Hecho |
-| 3 | Catálogo administrable y menú | 3-5, 30 | ✅ Hecho (pendiente de revisar) |
-| 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ⬜ Pendiente |
+| 3 | Catálogo administrable y menú | 3-5, 30 | ✅ Hecho |
+| 4 | Turno, órdenes y comanda | 1-11, 19, 31-32, 35 | ✅ Hecho (pendiente de revisar) |
 | 5 | Cobro, ticket y cocina | 12-18, 33-34, 36 | ⬜ Pendiente |
 | 6 | Corte de caja y cierre de turno | 20-26, 37-38 | ⬜ Pendiente |
 
@@ -65,13 +65,19 @@ negocio todavía.
 
 ## Sprint 4 · Turno, órdenes y comanda
 
-- [ ] Modelos: turnos (uno abierto a la vez), órdenes, productos de la orden,
-      comandas + migración.
-- [ ] Abrir turno con fondo de caja.
-- [ ] Crear orden, cliente, agregar/editar/quitar productos con total al día.
-- [ ] Confirmar → comanda con folio; cambios piden confirmar de nuevo.
-- [ ] Cancelar antes de cobrar.
-- [ ] Pruebas.
+- [x] Modelos: turnos, órdenes, productos de la orden y comandas + migración
+      `turnos ordenes y comandas` (con índice único: un solo turno abierto).
+- [x] `POST /turnos` abre la jornada con fondo de caja (`LA_ELOTIZA_FONDO_CAJA`
+      por defecto); `GET /turnos/actual`. Sin turno no se levantan órdenes.
+- [x] `POST /ordenes`, `PATCH /ordenes/{id}` (cliente) y
+      `POST/PATCH/DELETE /ordenes/{id}/items`; el total se recalcula solo.
+- [x] Cada producto guarda copia de nombre, presentación, opciones y precio:
+      cambiar el catálogo no altera órdenes anteriores.
+- [x] `POST /ordenes/{id}/confirmar` → comanda con folio; exige productos y
+      cliente. Un cambio posterior pide confirmar otra vez (versión 2, 3…).
+- [x] `POST /ordenes/{id}/cancelar`; una orden cancelada ya no se modifica.
+- [x] `GET /ordenes?filtro=en_preparacion|canceladas|todas`.
+- [x] 16 pruebas en `test_ordenes.py`.
 
 ## Sprint 5 · Cobro, ticket y cocina
 

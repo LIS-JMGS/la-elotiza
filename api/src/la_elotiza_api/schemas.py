@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from la_elotiza_api.models import Rol
+from la_elotiza_api.models import EstadoOrden, Rol
 
 # Los importes se exponen como número JSON con 2 decimales; por dentro son
 # Decimal para no acumular errores de redondeo.
@@ -27,6 +27,8 @@ Pin = Annotated[str, StringConstraints(pattern=r"^\d{4}$")]
 Nombre = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)
 ]
+Cliente = Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]
+Nota = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)]
 Posicion = Annotated[int, Field(ge=0)]
 Ids = Annotated[list[int], Field(max_length=50)]
@@ -327,3 +329,96 @@ class ProductoOut(Esquema):
 
 class CatalogoCategoriaOut(CategoriaOut):
     productos: list[ProductoOut]
+
+
+# --- Turno ------------------------------------------------------------------
+
+
+class AbrirTurnoIn(Esquema):
+    fondo: DineroEntrada | None = Field(
+        None, description="Si se omite, se usa el fondo configurado."
+    )
+
+
+class TurnoOut(Esquema):
+    id: int
+    fondo: Dinero
+    abierto_en: datetime
+    abierto_por: UsuarioOut
+    cerrado_en: datetime | None
+
+
+# --- Órdenes ----------------------------------------------------------------
+
+
+class OrdenIn(Esquema):
+    cliente: Cliente = ""
+
+
+class ClienteIn(Esquema):
+    cliente: Cliente
+
+
+class ItemIn(Personalizacion):
+    producto_id: int
+    cantidad: int = Field(1, ge=1, le=99)
+    nota: Nota = ""
+
+
+class ItemCambiosIn(Cambios):
+    cantidad: int | None = Field(None, ge=1, le=99)
+    nota: Nota | None = None
+    personalizacion: Personalizacion | None = Field(
+        None, description="Reemplaza presentación y modificadores completos"
+    )
+
+
+class ModificadorElegidoOut(Esquema):
+    id: int
+    grupo: str
+    nombre: str
+    precio: Dinero
+
+
+class ItemOut(Esquema):
+    id: int
+    producto_id: int
+    presentacion_id: int | None
+    nombre: str
+    presentacion: str
+    modificadores: list[ModificadorElegidoOut]
+    cantidad: int
+    detalle: str
+    nota: str
+    precio_unitario: Dinero
+    importe: Dinero
+
+
+class LineaComandaOut(Esquema):
+    item_id: int
+    cantidad: int
+    nombre: str
+    detalle: str
+    nota: str
+
+
+class ComandaOut(Esquema):
+    folio: str
+    version: int
+    cliente: str
+    generada_en: datetime
+    lineas: list[LineaComandaOut]
+
+
+class OrdenOut(Esquema):
+    id: int
+    folio: str
+    cliente: str
+    estado: EstadoOrden
+    comanda_al_dia: bool
+    confirmada: bool
+    creada_en: datetime
+    cancelada_en: datetime | None
+    total: Dinero
+    items: list[ItemOut]
+    comanda: ComandaOut | None

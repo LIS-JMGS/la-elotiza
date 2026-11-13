@@ -8,8 +8,19 @@ desde aquí).
 import enum
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import Column, Enum, ForeignKey, String, Table
+from sqlalchemy import (
+    JSON,
+    Column,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Table,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from la_elotiza_api.db import Base
@@ -199,3 +210,126 @@ class ProductoGrupo(Base):
         return [
             m for m in self.grupo.modificadores if m.activo and m.id not in excluidos
         ]
+
+
+# --- Turno y órdenes ----------------------------------------------------------
+
+
+class EstadoOrden(enum.StrEnum):
+    ABIERTA = "abierta"  # se puede editar, confirmar, cancelar o cobrar
+    CERRADA = "cerrada"  # cobrada; ya no se modifica
+    CANCELADA = "cancelada"  # no se cobró; no cuenta en ventas ni corte
+
+
+class Turno(Base):
+    """Jornada de caja: agrupa las ventas que entran en un corte."""
+
+    __tablename__ = "turnos"
+    __table_args__ = (
+        # Solo puede haber un turno abierto a la vez.
+        Index(
+            "uq_turno_abierto",
+            text("(cerrado_en IS NULL)"),
+            unique=True,
+            sqlite_where=text("cerrado_en IS NULL"),
+            postgresql_where=text("cerrado_en IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fondo: Mapped[Decimal] = mapped_column(Dinero())
+    abierto_en: Mapped[datetime] = mapped_column(FechaUTC(), default=ahora_utc)
+    abierto_por_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    cerrado_en: Mapped[datetime | None] = mapped_column(FechaUTC())
+    cerrado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    efectivo_contado: Mapped[Decimal | None] = mapped_column(Dinero())
+
+    abierto_por: Mapped[Usuario] = relationship(foreign_keys=[abierto_por_id])
+    cerrado_por: Mapped[Usuario | None] = relationship(foreign_keys=[cerrado_por_id])
+    ordenes: Mapped[list["Orden"]] = relationship(back_populates="turno")
+
+
+class Orden(Base):
+    __tablename__ = "ordenes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    turno_id: Mapped[int] = mapped_column(ForeignKey("turnos.id"), index=True)
+    cajero_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    cliente: Mapped[str] = mapped_column(String(80), default="")
+    estado: Mapped[EstadoOrden] = mapped_column(
+        _enum(EstadoOrden, "estado_orden"), default=EstadoOrden.ABIERTA, index=True
+    )
+    # True cuando la última comanda refleja los productos actuales.
+    comanda_al_dia: Mapped[bool] = mapped_column(default=False)
+    creada_en: Mapped[datetime] = mapped_column(FechaUTC(), default=ahora_utc)
+    cancelada_en: Mapped[datetime | None] = mapped_column(FechaUTC())
+
+    turno: Mapped[Turno] = relationship(back_populates="ordenes")
+    cajero: Mapped[Usuario] = relationship()
+    items: Mapped[list["OrdenItem"]] = relationship(
+        back_populates="orden",
+        cascade="all, delete-orphan",
+        order_by="OrdenItem.id",
+    )
+    comandas: Mapped[list["Comanda"]] = relationship(
+        back_populates="orden",
+        cascade="all, delete-orphan",
+        order_by="Comanda.version",
+    )
+
+    @property
+    def folio(self) -> str:
+        return f"#{self.id:04d}"
+
+    @property
+    def total(self) -> Decimal:
+        return sum((i.importe for i in self.items), Decimal("0.00"))
+
+    @property
+    def comanda(self) -> "Comanda | None":
+        return self.comandas[-1] if self.comandas else None
+
+
+class OrdenItem(Base):
+    __tablename__ = "orden_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(
+        ForeignKey("ordenes.id", ondelete="CASCADE"), index=True
+    )
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id"))
+    presentacion_id: Mapped[int | None] = mapped_column(ForeignKey("presentaciones.id"))
+    # Copias del catálogo al momento de agregar: el historial no cambia
+    # si después se ajustan nombres o precios del menú.
+    nombre: Mapped[str] = mapped_column(String(80))
+    presentacion: Mapped[str] = mapped_column(String(40), default="")
+    # [{"id", "grupo", "nombre", "precio"}] de cada opción elegida.
+    modificadores: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    cantidad: Mapped[int]
+    detalle: Mapped[str] = mapped_column(String(400), default="")
+    nota: Mapped[str] = mapped_column(String(200), default="")
+    precio_unitario: Mapped[Decimal] = mapped_column(Dinero())
+
+    orden: Mapped[Orden] = relationship(back_populates="items")
+
+    @property
+    def importe(self) -> Decimal:
+        return self.precio_unitario * self.cantidad
+
+
+class Comanda(Base):
+    """Copia de lo que se mandó a cocina en cada confirmación."""
+
+    __tablename__ = "comandas"
+    __table_args__ = (UniqueConstraint("orden_id", "version"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orden_id: Mapped[int] = mapped_column(
+        ForeignKey("ordenes.id", ondelete="CASCADE"), index=True
+    )
+    version: Mapped[int]
+    generada_en: Mapped[datetime] = mapped_column(FechaUTC(), default=ahora_utc)
+    cliente: Mapped[str] = mapped_column(String(80))
+    lineas: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+
+    orden: Mapped[Orden] = relationship(back_populates="comandas")
