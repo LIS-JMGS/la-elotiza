@@ -6,7 +6,7 @@ Desde el raíz del repositorio:
 
 ```bash
 pnpm run install:api
-pnpm run dev:api
+pnpm run dev:api        # aplica migraciones y levanta con recarga
 ```
 
 - API: http://127.0.0.1:8000
@@ -40,7 +40,29 @@ de `pyproject.toml` y uv instala el paquete en el entorno automáticamente.
 para reproducir las dependencias. Agregar dependencias con `uv add` desde
 esta carpeta (o `uv add --dev` para herramientas de desarrollo).
 
-El endpoint de salud solo verifica que la aplicación responde. Todavía no
-hay base de datos, autenticación ni integración con el frontend.
+El endpoint de salud solo verifica que la aplicación responde.
+
+## Base de datos y configuración
+
+SQLAlchemy 2 con migraciones de Alembic. Por defecto usa SQLite en
+`api/la_elotiza.db` (ignorada por Git). Desde `api/`:
+
+```bash
+uv run alembic upgrade head                              # aplicar migraciones
+uv run alembic revision --autogenerate -m "descripción"  # al cambiar modelos
+uv run alembic check                                     # modelos == migraciones
+```
+
+| Variable | Por defecto | Uso |
+| --- | --- | --- |
+| `LA_ELOTIZA_DATABASE_URL` | `sqlite:///./la_elotiza.db` | Base de datos (SQLAlchemy) |
+| `LA_ELOTIZA_ZONA_HORARIA` | `America/Mexico_City` | Fechas de ticket, comanda y corte |
+| `LA_ELOTIZA_CORS_ORIGINS` | `http://localhost:3000` | Orígenes del frontend, separados por coma |
+
+Los importes se guardan como centavos enteros (`tipos.Dinero`) y las fechas
+en UTC (`tipos.FechaUTC`). Los servicios lanzan errores de `errores.py` y
+`main.py` los convierte en respuestas `{"detail", "errores"}`.
+
+El avance por sprints está en [SPRINTS.md](SPRINTS.md).
 
 Esta carpeta pertenece al repositorio Git raíz; no ejecutar `git init` aquí.
